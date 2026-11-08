@@ -1,0 +1,288 @@
+<Window x:Class="GimbalLockVisualizer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:GimbalLockVisualizer"
+        xmlns:controls="clr-namespace:GimbalLockVisualizer.Controls"
+        mc:Ignorable="d"
+        Title="萬向鎖 (Gimbal Lock) 原理解析與四元數解決方案 - C# / .NET" 
+        Height="840" Width="1380"
+        MinHeight="720" MinWidth="1100"
+        WindowStartupLocation="CenterScreen"
+        Background="#0A0E17">
+
+    <Window.Resources>
+        <!-- 樣式設定 -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="FontFamily" Value="Segoe UI, Microsoft JhengHei"/>
+        </Style>
+
+        <Style x:Key="HeaderButton" TargetType="Button">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#334155"/>
+                    <Setter Property="Foreground" Value="#F8FAFC"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#38BDF8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#0284C7"/>
+                    <Setter Property="BorderBrush" Value="#7DD3FC"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+            <Setter Property="Background" Value="#DC2626"/>
+            <Setter Property="BorderBrush" Value="#EF4444"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#B91C1C"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PurpleButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+            <Setter Property="Background" Value="#7C3AED"/>
+            <Setter Property="BorderBrush" Value="#A855F7"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#6D28D9"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 頂部導覽列 -->
+        <Border Grid.Row="0" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="0,0,0,1" Padding="20,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Logo & 標題 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="#2563EB" CornerRadius="8" Width="32" Height="32" Margin="0,0,12,0">
+                        <TextBlock Text="🎛️" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="萬向鎖 (Gimbal Lock) 3D 原理解析與四元數解算器" FontSize="16" FontWeight="Bold" Foreground="#F8FAFC" VerticalAlignment="Center"/>
+                    <Border Background="#1E293B" CornerRadius="4" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="C# / .NET 8+" FontSize="11" Foreground="#38BDF8" FontWeight="SemiBold"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- 視圖切換按鈕 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button x:Name="BtnViewSingle" Content="實體萬向環與死鎖重現" Style="{StaticResource HeaderButton}" Margin="0,0,8,0" Click="BtnViewSingle_Click"/>
+                    <Button x:Name="BtnViewCompare" Content="歐拉角 vs 四元數插值對比" Style="{StaticResource HeaderButton}" Margin="0,0,8,0" Click="BtnViewCompare_Click"/>
+                    <Button x:Name="BtnViewTheory" Content="數學原理與 C# 解法教學" Style="{StaticResource HeaderButton}" Click="BtnViewTheory_Click"/>
+                </StackPanel>
+
+                <!-- 狀態指示燈 -->
+                <Border Grid.Column="2" x:Name="StatusBorder" Background="#064E3B" BorderBrush="#059669" BorderThickness="1" CornerRadius="16" Padding="12,5" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="StatusDot" Width="9" Height="9" Fill="#10B981" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="StatusText" Text="系統正常 (具備 3 個完整旋轉自由度)" FontSize="12" FontWeight="Bold" Foreground="#34D399"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 主視圖區域 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="380"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左側：姿態控制面板 -->
+            <Border Grid.Column="0" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="0,0,1,0" Padding="16">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <!-- 區塊標題 -->
+                        <TextBlock Text="🎮 姿態控制 (歐拉角 EULER ANGLES)" FontSize="13" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,12"/>
+
+                        <!-- 偏航 Yaw (Y軸 - 綠色外環) -->
+                        <Border Background="#1E293B" CornerRadius="8" Padding="12" Margin="0,0,0,10" BorderBrush="#10B981" BorderThickness="3,0,0,0">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="● 偏航角 Yaw (Y 軸 / 綠色外環)" FontWeight="Bold" Foreground="#34D399"/>
+                                    <TextBlock x:Name="TxtYawVal" Text="0°" HorizontalAlignment="Right" FontWeight="Bold" FontFamily="Consolas" Foreground="#F8FAFC"/>
+                                </Grid>
+                                <Slider x:Name="SliderYaw" Minimum="-180" Maximum="180" Value="0" SmallChange="1" ValueChanged="Slider_ValueChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 俯仰 Pitch (X軸 - 紅色中環) -->
+                        <Border Background="#1E293B" CornerRadius="8" Padding="12" Margin="0,0,0,10" BorderBrush="#EF4444" BorderThickness="3,0,0,0">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="● 俯仰角 Pitch (X 軸 / 紅色中環)" FontWeight="Bold" Foreground="#F87171"/>
+                                    <TextBlock x:Name="TxtPitchVal" Text="0°" HorizontalAlignment="Right" FontWeight="Bold" FontFamily="Consolas" Foreground="#F8FAFC"/>
+                                </Grid>
+                                <Slider x:Name="SliderPitch" Minimum="-90" Maximum="90" Value="0" SmallChange="1" ValueChanged="Slider_ValueChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 翻滾 Roll (Z軸 - 藍色內環) -->
+                        <Border Background="#1E293B" CornerRadius="8" Padding="12" Margin="0,0,0,14" BorderBrush="#3B82F6" BorderThickness="3,0,0,0">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="● 翻滾角 Roll (Z 軸 / 藍色內環)" FontWeight="Bold" Foreground="#60A5FA"/>
+                                    <TextBlock x:Name="TxtRollVal" Text="0°" HorizontalAlignment="Right" FontWeight="Bold" FontFamily="Consolas" Foreground="#F8FAFC"/>
+                                </Grid>
+                                <Slider x:Name="SliderRoll" Minimum="-180" Maximum="180" Value="0" SmallChange="1" ValueChanged="Slider_ValueChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 萬向鎖警報橫幅 -->
+                        <Border x:Name="WarningBox" Background="#450A0A" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,14" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="⚠️ 萬向鎖觸發！(Gimbal Lock Occurred)" FontWeight="Bold" Foreground="#F87171" FontSize="13" Margin="0,0,0,6"/>
+                                <TextBlock Text="當中間的 俯仰環 (Pitch) 旋轉到 ±90° 時，偏航軸 (Yaw) 與 翻滾軸 (Roll) 發生共線重疊！" TextWrapping="Wrap" FontSize="12" Foreground="#FECACA" LineHeight="18"/>
+                                <TextBlock Text="👉 系統瞬間失去 1 個獨立自由度！此時旋轉綠環與藍環只會在同一個平面上轉動，無法在空間中直接繞第三維度旋轉。" TextWrapping="Wrap" FontSize="12" Foreground="#FCA5A5" Margin="0,6,0,0" LineHeight="18"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 核心操作按鈕 -->
+                        <TextBlock Text="⚡ 核心操作與實驗驗證" FontSize="13" FontWeight="Bold" Foreground="#38BDF8" Margin="0,6,0,8"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Content="💥 一鍵觸發萬向鎖 (Pitch = 90°)" Style="{StaticResource DangerButton}" Margin="0,0,0,8" Click="BtnLock90_Click"/>
+                            <Button Grid.Row="1" Grid.Column="0" Content="俯仰 -90° 死鎖" Style="{StaticResource ActionButton}" Margin="0,0,4,8" Click="BtnLockNeg90_Click"/>
+                            <Button Grid.Row="1" Grid.Column="1" Content="重設姿態 (0,0,0)" Style="{StaticResource ActionButton}" Margin="4,0,0,8" Click="BtnReset_Click"/>
+                            <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Content="🔄 實證：Yaw 與 Roll 對消測試" Style="{StaticResource PurpleButton}" Click="BtnCancelTest_Click"/>
+                        </Grid>
+
+                        <!-- 插值播放控制器 (比較模式) -->
+                        <Border x:Name="InterpControlBox" Background="#1E293B" CornerRadius="8" Padding="12" Margin="0,10,0,0" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="▶ 插值動畫播放器 (Euler vs Slerp)" FontWeight="Bold" Foreground="#A855F7" Margin="0,0,0,8"/>
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="過渡進度 t [0.0 ~ 1.0]" FontSize="11" Foreground="#94A3B8"/>
+                                    <TextBlock x:Name="TxtInterpProgress" Text="0%" HorizontalAlignment="Right" FontWeight="Bold" FontFamily="Consolas" Foreground="#C084FC"/>
+                                </Grid>
+                                <ProgressBar x:Name="ProgInterp" Height="6" Minimum="0" Maximum="1" Value="0" Foreground="#A855F7" Background="#0F172A" BorderThickness="0" Margin="0,0,0,10"/>
+                                <Button x:Name="BtnPlayInterp" Content="▶ 開始插值測試 (跨越 90° 奇點)" Style="{StaticResource PurpleButton}" Click="BtnPlayInterp_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- 中間：3D 視覺畫布 -->
+            <Grid Grid.Column="1">
+                <!-- 3D 向量畫布控件 -->
+                <controls:GimbalVisualizerControl x:Name="Canvas3D"/>
+
+                <!-- 浮動提示 -->
+                <Border Background="#80000000" CornerRadius="6" Padding="10,5" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="14" IsHitTestVisible="False">
+                    <TextBlock Text="🖱️ 操作說明：滑鼠左鍵拖曳旋轉視角 ｜ 滾輪縮放 ｜ 右鍵重設視角" FontSize="11" Foreground="#94A3B8"/>
+                </Border>
+            </Grid>
+
+            <!-- 右側：數學矩陣與解法看板 -->
+            <Border Grid.Column="2" Background="#0F172A" BorderBrush="#1E293B" BorderThickness="1,0,0,0" Padding="16">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <!-- 矩陣顯示看板 -->
+                        <TextBlock Text="📐 即時 3x3 旋轉矩陣 (ROTATION MATRIX)" FontSize="13" FontWeight="Bold" Foreground="#38BDF8" Margin="0,0,0,8"/>
+                        <Border Background="#050811" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,14">
+                            <TextBlock x:Name="TxtMatrixDisplay" Text="計算中..." FontFamily="Consolas" FontSize="12" Foreground="#38BDF8" LineHeight="18"/>
+                        </Border>
+
+                        <!-- 四元數數值 -->
+                        <TextBlock Text="🛡️ 對應四元數 (QUATERNION)" FontSize="13" FontWeight="Bold" Foreground="#A855F7" Margin="0,0,0,8"/>
+                        <Border Background="#050811" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,14">
+                            <TextBlock x:Name="TxtQuatDisplay" Text="計算中..." FontFamily="Consolas" FontSize="12" Foreground="#C084FC" LineHeight="18"/>
+                        </Border>
+
+                        <!-- 數學推導 -->
+                        <TextBlock Text="💡 為什麼會發生萬向鎖？" FontSize="13" FontWeight="Bold" Foreground="#FBBF24" Margin="0,0,0,8"/>
+                        <Border Background="#1E293B" CornerRadius="6" Padding="12" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="歐拉角依照 Y → X → Z 順序連續旋轉：" FontSize="12" Foreground="#CBD5E1"/>
+                                <TextBlock Text="R = R_yaw(Y) · R_pitch(X) · R_roll(Z)" FontFamily="Consolas" FontSize="12" Foreground="#60A5FA" Margin="0,4,0,4"/>
+                                <TextBlock Text="當中間的俯仰角 θ = 90° 時，cos(90°) = 0，矩陣展開後經由三角恆等式簡化為：" TextWrapping="Wrap" FontSize="12" Foreground="#CBD5E1"/>
+                                <TextBlock Text="R_locked = f(Yaw ± Roll)" FontFamily="Consolas" FontSize="12" Foreground="#F87171" FontWeight="Bold" Margin="0,4,0,4"/>
+                                <TextBlock Text="這表示原本獨立的偏航角與翻滾角綁定成同一個旋轉量，失去了一個自由度！" TextWrapping="Wrap" FontSize="12" Foreground="#FCA5A5"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 終極解法說明 -->
+                        <TextBlock Text="🚀 為什麼四元數能完美解決？" FontSize="13" FontWeight="Bold" Foreground="#34D399" Margin="0,0,0,8"/>
+                        <Border Background="#1E293B" CornerRadius="6" Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="四元數以四維超球面 (S³) 表示旋轉：" FontSize="12" Foreground="#CBD5E1"/>
+                                <TextBlock Text="q = [cos(θ/2), u · sin(θ/2)]" FontFamily="Consolas" FontSize="12" Foreground="#C084FC" Margin="0,4,0,4"/>
+                                <TextBlock Text="1. 無奇點 (No Singularity)：在 4D 空間中每個 3D 旋轉姿態都是光滑連續的，沒有軸向重合問題。" TextWrapping="Wrap" FontSize="12" Foreground="#CBD5E1" Margin="0,2,0,4"/>
+                                <TextBlock Text="2. 球面插值 (Slerp)：永遠沿著最短大圓弧插值，旋轉角速度恆定均勻，絕無劇烈抽搐！" TextWrapping="Wrap" FontSize="12" Foreground="#34D399"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
